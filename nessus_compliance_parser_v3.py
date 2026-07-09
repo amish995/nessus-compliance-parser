@@ -190,7 +190,7 @@ def handle_report(report):
                 raise
             ip_issues.append(issue_list)
     
-    # old counter handler, replaced by formula
+    # old counter handler, replaced by excel formulae, still used to pass the benchmark name to the function because i'm lazy to fully refactor
     summary_counts = [benchmark_name, summary_dict['PASSED'], summary_dict['FAILED'], summary_dict['WARNING'], summary_dict['ERROR']]
 
     return ip_issues, summary_counts 
