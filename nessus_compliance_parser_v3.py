@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Last Updated -- 03 Feb 2026
+# Last Updated -- 09 Jul 2026
 # Description -- Creates an excel with a summary of compliance issues, and 
 # an excel sheet for every IP with the corresponding compliance issues. 
 
@@ -9,8 +9,8 @@ import xml.etree.ElementTree as ET
 import xlsxwriter
 import re
 
-WKS_HEADERS = ['Check', 'Result', 'Description', 'Policy Value', 'Actual Value', 'Remediation', 'Profile', 'Reference']
-SUMM_HEADERS = ['No.', 'IP', 'Benchmark', 'Passed', 'Failed', 'Warning', 'Total']
+WKS_HEADERS = ['Check', 'Result', 'Description', 'Policy Value', 'Actual Value', 'Remediation', 'Profile', 'Reference', 'Notes']
+SUMM_HEADERS = ['No.', 'IP', 'Benchmark', 'Passed', 'Failed', 'Not Applicable', 'Total']
 
 IGNORED_COMPLIANCE_CHECKS = ['CIS_Ubuntu_20.04_LTS_Server_v1.1.0_L1.audit from CIS Ubuntu Linux 20.04 LTS Benchmark']
 
@@ -31,6 +31,7 @@ def get_total(ip_summary):
         Sum of count of passed, failed and warning
     '''
     # return passed + failed + warning
+
     return ip_summary[1] + ip_summary[2] + (ip_summary[3]+ip_summary[4])
 
 
@@ -72,7 +73,10 @@ def write_excel_report(workbook_name, summary_dict, issues_dict, font='IBM Plex 
         for j in range(len(summary_dict[ip])):
             summ.write(row, j+2, summary_dict[ip][j], normal_format)
         # total
-        summ.write(row, 6, get_total(summary_dict[ip]), normal_format)
+        # summ.write(row, 6, get_total(summary_dict[ip]), normal_format)
+        # print(row, 6, "=D{}+E{}+F{}".format(row+1, row+1, row+1))
+        summ.write(row, 6, "=D{}+E{}+F{}".format(row+1, row+1, row+1), normal_format)
+        
         row += 1
 
     # For every IP, write a new sheet containing all the issues
@@ -93,14 +97,16 @@ def write_excel_report(workbook_name, summary_dict, issues_dict, font='IBM Plex 
         ip_issues.set_column(4,4,50)
         ip_issues.set_column(5,5,35)
         ip_issues.set_column(7,7,40)
+        ip_issues.set_column(8,8,40)
 
         # Write the issues
         row = 1
         for issue_list in issues_dict[ip_address]:
-            for i in range(len(issue_list)):
+            for i in range(len(issue_list)):  
                 ip_issues.write(row, i, issue_list[i], normal_format)
+            ip_issues.write(row, 8, " ", normal_format)
             row += 1
-    
+            
     wb.close()
     print("Done writing to workbook!")
 
@@ -111,7 +117,12 @@ def get_value(rawValue):
     new lines and limiting text to 32000 characters
     '''
     # Replace the new lines so that it doesnt mess up anything else
-    cleanValue = rawValue.replace('\n', '\t').strip(' ')
+    try:
+        cleanValue = rawValue.replace('\n', '\t').strip(' ')
+    except AttributeError:
+        cleanValue = 'No output recorded'
+    
+    
     # Praise our lord and savior, Regex
     # Removes all the multiple spaces between words that Nessus randomly adds 
     cleanValue = re.sub(' {2,}', ' ', cleanValue)
@@ -144,28 +155,42 @@ def handle_report(report):
         # if item.attrib['severity'] != "0":
         # Go through report item and extract the 
         # necessary compliance tags
-        issue_dict = {elem.tag: get_value(elem.text) for elem in item if elem.tag in COMPLIANCE_TAGS}
+        try:
+            issue_dict = {elem.tag: get_value(elem.text) for elem in item if elem.tag in COMPLIANCE_TAGS}
+            # print(issue_dict)
+        except:
+            print (issue_dict)
+            raise
 
         # Set benchmark name for summary sheet
         if len(ip_issues) == 1 and benchmark_name == '':
             benchmark_name = item.find('{http://www.nessus.org/cm}compliance-benchmark-name').text + ' v' + item.find('{http://www.nessus.org/cm}compliance-benchmark-version').text
 
         # Count issue status for summary and convert issue dict to list
-        # Skipping error tags
+        # Skipping error tags [Deprecated]
 
         # one way to filter:
         # if(issue_dict != {} and issue_dict['{http://www.nessus.org/cm}compliance-result'] != 'ERROR' and issue_dict['{http://www.nessus.org/cm}compliance-check-name'] not in IGNORED_COMPLIANCE_CHECKS):
         # alternatively, check that length of issues = length of compliance tags
+
+        # add "No output recorded for error tags"
         if '{http://www.nessus.org/cm}compliance-actual-value' not in issue_dict.keys():
             issue_dict['{http://www.nessus.org/cm}compliance-actual-value'] = 'No output recorded'
+        # add "non-cis for profile when scanning a non-cis benchmark without the profile attribute"
+        if '{http://www.nessus.org/cm}compliance-benchmark-profile' not in issue_dict.keys():
+            issue_dict['{http://www.nessus.org/cm}compliance-benchmark-profile'] = 'Non-CIS'
+        
         if len(issue_dict.keys()) == len(COMPLIANCE_TAGS):
+            # old counter handler, replaced by formula
             summary_dict[issue_dict['{http://www.nessus.org/cm}compliance-result']] += 1
             try:
                 issue_list = [issue_dict[tag] for tag in COMPLIANCE_TAGS]
             except KeyError as e:
                 print(issue_dict.keys())
+                raise
             ip_issues.append(issue_list)
     
+    # old counter handler, replaced by formula
     summary_counts = [benchmark_name, summary_dict['PASSED'], summary_dict['FAILED'], summary_dict['WARNING'], summary_dict['ERROR']]
 
     return ip_issues, summary_counts 
@@ -174,7 +199,7 @@ def handle_report(report):
 if __name__ == '__main__':
 
     aparser = argparse.ArgumentParser(description='Converts Nessus scan findings from XML to an Excel file with a summary tab. Consolidates IPs with the same issue into 1 row', usage="\n./nessus-compliance-parser-v3.py input1.nessus input2.nessus ...\nAny fields longer than 32,000 characters will be truncated.")
-    aparser.add_argument('nessus_xml_files', type=str, nargs='+', help="nessus xml file to parse")
+    aparser.add_argument('-xml', '--nessus_xml_files', type=str, nargs='+', help="nessus xml file to parse")
     aparser.add_argument('--out', type=str, help="output workbook to save results in", default="Compliance_Summary.xlsx")
 
     args = aparser.parse_args()
@@ -198,7 +223,8 @@ if __name__ == '__main__':
             print(f"Extracting issues for IP {ip_address}")
             res, summary_res = handle_report(report)
             ip_issues_dict[ip_address] = res
-            summary_dict[ip_address] = summary_res
+            # summary_dict[ip_address] = summary_res #old counter handler, replaced by formula below
+            summary_dict[ip_address] = [summary_res[0], "=COUNTIF('{} Issues'!B:B,\"PASSED\")".format(ip_address), "=COUNTIF('{} Issues'!B:B,\"FAILED\")".format(ip_address), "=COUNTIF('{} Issues'!B:B,\"NA\")".format(ip_address)]
     
     write_excel_report(output_wb, summary_dict, ip_issues_dict, 'IBM Plex Sans')
     
