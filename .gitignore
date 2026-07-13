@@ -208,6 +208,7 @@ __marimo__/
 
 # Output Files
 Compliance_Summary.xlsx
+*.xlsx
 
 # Mac
 .DS_Store

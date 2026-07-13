@@ -10,7 +10,7 @@ import xlsxwriter
 import re
 
 WKS_HEADERS = ['Check', 'Result', 'Description', 'Policy Value', 'Actual Value', 'Remediation', 'Profile', 'Reference', 'Notes']
-SUMM_HEADERS = ['No.', 'IP', 'Benchmark', 'Passed', 'Failed', 'Not Applicable', 'Total']
+SUMM_HEADERS = ['No.', 'IP', 'Benchmark', 'Passed', 'Failed', 'Not Applicable', 'Warning', 'Total']
 
 IGNORED_COMPLIANCE_CHECKS = ['CIS_Ubuntu_20.04_LTS_Server_v1.1.0_L1.audit from CIS Ubuntu Linux 20.04 LTS Benchmark']
 
@@ -75,7 +75,7 @@ def write_excel_report(workbook_name, summary_dict, issues_dict, font='IBM Plex 
         # total
         # summ.write(row, 6, get_total(summary_dict[ip]), normal_format)
         # print(row, 6, "=D{}+E{}+F{}".format(row+1, row+1, row+1))
-        summ.write(row, 6, "=D{}+E{}+F{}".format(row+1, row+1, row+1), normal_format)
+        summ.write(row, 7, "=D{}+E{}+F{}+G{}".format(row+1, row+1, row+1, row+1), normal_format)
         
         row += 1
 
@@ -224,7 +224,7 @@ if __name__ == '__main__':
             res, summary_res = handle_report(report)
             ip_issues_dict[ip_address] = res
             # summary_dict[ip_address] = summary_res #old counter handler, replaced by formula below
-            summary_dict[ip_address] = [summary_res[0], "=COUNTIF('{} Issues'!B:B,\"PASSED\")".format(ip_address), "=COUNTIF('{} Issues'!B:B,\"FAILED\")".format(ip_address), "=COUNTIF('{} Issues'!B:B,\"NA\")".format(ip_address)]
+            summary_dict[ip_address] = [summary_res[0], "=COUNTIF('{} Issues'!B:B,\"PASSED\")".format(ip_address), "=COUNTIF('{} Issues'!B:B,\"FAILED\")".format(ip_address), "=COUNTIF('{} Issues'!B:B,\"NA\")".format(ip_address), "=COUNTIF('{} Issues'!B:B,\"WARNING\")".format(ip_address)]
     
     write_excel_report(output_wb, summary_dict, ip_issues_dict, 'IBM Plex Sans')
     
