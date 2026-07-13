@@ -10,7 +10,7 @@ python3 nessus-compliance-parser-v3.py -xml input1.nessus input2.nessus ...
 ## Notes
 - The script will output a summary sheet with excel formulas for the counts (PASSED, FAILED, NA).
 - Manual updates to the status on each worksheet will automatically update the summary sheet. Use "NA" for checks that are to be counted as excluded.
-- 
+- Warning column in summary sheet will track items tagged as WARNING. If not required, column can be deleted
 
 ## Limitations
 - Multiple files with the same host IPs need to be handled separately. If run together, the script will only export the results of the final file ingested
